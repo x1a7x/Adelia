@@ -18,7 +18,7 @@ made for php 8.4.1 +
 
 reply function. images expand on click. sqlite3 db. 
 
-Will do soon- implement a few security measures (and it will still not be secure, its php)
+Will do soon- implement a few (about 10) security measures (and it will still not be secure, its php)
 
 
  # to do:: 
