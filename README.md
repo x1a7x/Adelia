@@ -3,6 +3,17 @@
 
 ![demo](https://github.com/user-attachments/assets/0c217ccc-eb66-44ab-bac5-241a6da54dc0)
 
+
+
+
+![demo1](https://github.com/user-attachments/assets/e7daba5c-2da3-4d54-8ee9-743c5b7ccdb1)
+
+
+
+
+
+
+
 made for php 8.4.1 +
 
 reply function. images expand on click. sqlite3 db. 
