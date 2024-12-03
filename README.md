@@ -16,6 +16,10 @@
 
 made for php 8.4.1 +
 
+minimal deps- GD and sqlite3 
+
+So simple a whale could install it. it makes the db and necessary directories when you visit index.php the first time from a browser. 
+
 reply function. images expand on click. sqlite3 db. 
 
 
