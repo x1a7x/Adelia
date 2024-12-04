@@ -1,4 +1,26 @@
 
+
+
+
+
+
+
+
+![rust](https://github.com/user-attachments/assets/b30f9c66-1fda-4f8d-9895-fad9602211d1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # current version -003
 
 
