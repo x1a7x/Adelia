@@ -26,7 +26,7 @@ So simple a whale could install it. it makes the db and necessary directories wh
 # Adelia Imageboard - README
 
 ## Overview
-Adelia Imageboard is a secure, reliable, and feature-rich imageboard that supports the creation of threads and replies, along with image and video uploads. It is designed with both user experience and security as top priorities. This document outlines the key security, functional, and performance features that make Adelia Imageboard robust and dependable.
+Adelia Imageboard is a somewhat secure, reliable, and feature-rich imageboard that supports the creation of threads and replies, along with image and video uploads. It is designed with both user experience and security as top priorities. This document outlines the key security, functional, and performance features that make Adelia Imageboard robust and dependable.
 
 ## Key Features
 
