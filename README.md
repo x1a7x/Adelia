@@ -15,7 +15,7 @@
 
 
 
-made for php 8.4.1 +
+made for php 8.4.1 + (NOTE- it does not fully take advantage of php 8.4.1 yet tho but it runs fine on that version with no warnings or errors. 
 
 minimal deps- GD and sqlite3 
 
