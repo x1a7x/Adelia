@@ -31,15 +31,27 @@ if (!isset($_SESSION['initiated'])) {
     $_SESSION['initiated'] = true;
 }
 
+// Toggle rate limiting
+$rateLimitingEnabled = false; // Set this to false to disable rate limiting
+
+// Rate limiting to prevent spam
+if ($rateLimitingEnabled && isset($_SESSION['last_post_time'])) {
+    $timeSinceLastPost = time() - $_SESSION['last_post_time'];
+    if ($timeSinceLastPost < 10) { // Limit to 1 post every 10 seconds
+        die('You are posting too frequently. Please wait before submitting again.');
+    }
+}
+$_SESSION['last_post_time'] = time();
+
 // Configuration
 define('ADELIA_BOARD_DESC', 'Adelia Imageboard');
 define('ADELIA_THREADS_PER_PAGE', 10);
 define('ADELIA_MAX_LINES', 15);
 define('ADELIA_TIMEZONE', 'UTC');
-define('ADELIA_MAX_FILE_SIZE', 2048 * 1024); // 2 MB
+define('ADELIA_MAX_FILE_SIZE', 20 * 1024 * 1024); // 20 MB
 define('ADELIA_UPLOAD_DIR', __DIR__ . '/uploads/');
 define('ADELIA_THUMB_DIR', __DIR__ . '/thumbs/');
-define('ADELIA_ALLOWED_MIME', ['image/jpeg', 'image/png', 'image/gif', 'video/webm', 'video/mp4']);
+define('ADELIA_ALLOWED_MIME', ['image/jpeg', 'image/png', 'image/gif', 'video/mp4']); // Only MP4 for videos
 define('ADELIA_THUMB_WIDTH', 250);
 define('ADELIA_THUMB_HEIGHT', 250);
 
@@ -180,11 +192,6 @@ function getThreads(int $page, int $perPage, SQLite3 $db): array {
     return $threads;
 }
 
-function getTotalThreads(SQLite3 $db): int {
-    $result = $db->querySingle("SELECT COUNT(*) as count FROM posts WHERE parent = 0", true);
-    return (int)$result['count'];
-}
-
 function getReplies(int $threadId, SQLite3 $db): array {
     $stmt = $db->prepare("SELECT * FROM posts WHERE parent = :parent ORDER BY timestamp ASC");
     $stmt->bindValue(':parent', $threadId, SQLITE3_INTEGER);
@@ -219,25 +226,24 @@ function countReplies(int $threadId, SQLite3 $db): int {
     return (int)$row['count'];
 }
 
-// Function to display pagination
-function displayPagination(int $currentPage, int $threadsPerPage, SQLite3 $db): string {
-    $totalThreads = getTotalThreads($db);
-    $totalPages = (int)ceil($totalThreads / $threadsPerPage);
+function getTotalThreads(SQLite3 $db): int {
+    $result = $db->querySingle("SELECT COUNT(*) as count FROM posts WHERE parent = 0", true);
+    return (int)$result['count'];
+}
 
+function displayPagination(int $currentPage, int $threadsPerPage, SQLite3 $db): string {
+    $totalPages = (int)ceil(getTotalThreads($db) / $threadsPerPage);
     if ($totalPages <= 1) {
         return '';
     }
 
     $pagination = '<div class="pagination">';
-
-    // Previous Page Link
     if ($currentPage > 1) {
         $pagination .= '<a href="?page=' . ($currentPage - 1) . '">&laquo; Previous</a>';
     } else {
         $pagination .= '<span class="disabled">&laquo; Previous</span>';
     }
 
-    // Page Number Links
     for ($i = 1; $i <= $totalPages; $i++) {
         if ($i === $currentPage) {
             $pagination .= '<span class="current">' . $i . '</span>';
@@ -246,7 +252,6 @@ function displayPagination(int $currentPage, int $threadsPerPage, SQLite3 $db): 
         }
     }
 
-    // Next Page Link
     if ($currentPage < $totalPages) {
         $pagination .= '<a href="?page=' . ($currentPage + 1) . '">Next &raquo;</a>';
     } else {
@@ -259,20 +264,21 @@ function displayPagination(int $currentPage, int $threadsPerPage, SQLite3 $db): 
 
 // Handle POST Requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
-        die('CSRF token validation failed.');
-    }
-
     $parent = isset($_POST['parent']) ? (int)$_POST['parent'] : 0;
     $subject = isset($_POST['subject']) ? sanitize($_POST['subject']) : '';
     $message = isset($_POST['message']) ? sanitize($_POST['message']) : '';
+
+    // Validate CSRF Token
+    if (!validateCsrfToken($_POST['csrf_token'])) {
+        die('Invalid CSRF token.');
+    }
 
     // Validate message
     if (empty($message)) {
         die('Message cannot be empty.');
     }
 
-    // Handle file upload (only for new threads)
+    // Handle file upload (only for new threads, not replies)
     $file = null;
     $thumb = null;
     if ($parent === 0 && isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -296,10 +302,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'image/jpeg' => 'jpg',
             'image/png' => 'png',
             'image/gif' => 'gif',
-            'video/webm' => 'webm',
             'video/mp4' => 'mp4',
             default => '',
         };
+
+        if ($extension === '') {
+            die('Unsupported file extension.');
+        }
 
         $uniqueFilename = generateUniqueFilename($extension);
         $destination = ADELIA_UPLOAD_DIR . $uniqueFilename;
@@ -307,9 +316,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!move_uploaded_file($_FILES['file']['tmp_name'], $destination)) {
             die('Failed to move uploaded file.');
         }
-
-        // Set file permissions to 0644
-        chmod($destination, 0644);
 
         // Create thumbnail (only for images)
         if (in_array($mime, ['image/jpeg', 'image/png', 'image/gif'])) {
@@ -391,7 +397,8 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
             echo '<div class="postarea">';
             echo '<form class="postform" action="" method="post" enctype="multipart/form-data">';
             echo '<input type="hidden" name="parent" value="' . $threadId . '">';
-            echo '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(generateCsrfToken()) . '">';
+            echo '<input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">';
+            echo '<input type="text" name="subject" maxlength="20" placeholder="Subject (optional)" required>';
             echo '<textarea id="message" name="message" rows="4" maxlength="8000" placeholder="Message" required></textarea>';
             echo '<input type="submit" value="Reply">';
             echo '</form>';
@@ -403,9 +410,13 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
             echo '<div class="thread">';
             echo '<div class="row1">';
             if (!empty($mainThread['file'])) {
-                echo '<div class="thread-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($mainThread['thumb']) . '" data-full="uploads/' . htmlspecialchars($mainThread['file']) . '" src="thumbs/' . htmlspecialchars($mainThread['thumb']) . '" alt="Image"></div>';
+                if (strpos($mainThread['file'], '.mp4') !== false) {
+                    echo '<div class="thread-video"><video controls><source src="uploads/' . htmlspecialchars($mainThread['file']) . '" type="video/mp4">Your browser does not support the video tag.</video></div>';
+                } else {
+                    echo '<div class="thread-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($mainThread['thumb']) . '" data-full="uploads/' . htmlspecialchars($mainThread['file']) . '" src="thumbs/' . htmlspecialchars($mainThread['thumb']) . '" alt="Image"></div>';
+                }
             }
-            echo '<h2 class="subject">' . sanitize($mainThread['subject']) . '</h2><br><br>';
+            echo '<span class="subject"><h2>' . htmlspecialchars($mainThread['subject']) . '</h2></span><br>';
             echo '<span class="message">' . escapeOutput($mainThread['message']) . '</span><br>';
             echo '</div></div><hr>';
 
@@ -414,8 +425,13 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
             foreach ($replies as $reply) {
                 echo '<div class="reply" id="post' . $reply['id'] . '">';
                 if (!empty($reply['file'])) {
-                    echo '<div class="reply-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($reply['thumb']) . '" data-full="uploads/' . htmlspecialchars($reply['file']) . '" src="thumbs/' . htmlspecialchars($reply['thumb']) . '" alt="Image"></div>';
+                    if (strpos($reply['file'], '.mp4') !== false) {
+                        echo '<div class="reply-video"><video controls><source src="uploads/' . htmlspecialchars($reply['file']) . '" type="video/mp4">Your browser does not support the video tag.</video></div>';
+                    } else {
+                        echo '<div class="reply-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($reply['thumb']) . '" data-full="uploads/' . htmlspecialchars($reply['file']) . '" src="thumbs/' . htmlspecialchars($reply['thumb']) . '" alt="Image"></div>';
+                    }
                 }
+                echo '<span class="subject"><h2>' . htmlspecialchars($reply['subject']) . '</h2></span><br>';
                 echo '<span class="message">' . escapeOutput($reply['message']) . '</span><br>';
                 echo '</div><hr>';
             }
@@ -435,10 +451,10 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
         echo '<div class="postarea">';
         echo '<form class="postform" action="" method="post" enctype="multipart/form-data">';
         echo '<input type="hidden" name="parent" value="0">';
-        echo '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(generateCsrfToken()) . '">';
-        echo '<input type="file" id="file" name="file" accept="image/jpeg,image/png,image/gif,video/webm,video/mp4">';
-        echo '<input type="text" id="subject" name="subject" maxlength="20" placeholder="Subject" required>';
+        echo '<input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">';
+        echo '<input type="text" name="subject" maxlength="20" placeholder="Subject (optional)" required>';
         echo '<textarea id="message" name="message" rows="4" maxlength="8000" placeholder="Message" required></textarea>';
+        echo '<input type="file" id="file" name="file" accept="image/jpeg,image/png,image/gif,video/mp4">';
         echo '<input type="submit" value="Post">';
         echo '</form>';
         echo '</div>';
@@ -450,10 +466,14 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
             echo '<div class="thread">';
             echo '<div class="row1">';
             if (!empty($thread['file'])) {
-                echo '<div class="thread-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($thread['thumb']) . '" data-full="uploads/' . htmlspecialchars($thread['file']) . '" src="thumbs/' . htmlspecialchars($thread['thumb']) . '" alt="Image"></div>';
+                if (strpos($thread['file'], '.mp4') !== false) {
+                    echo '<div class="thread-video"><video controls><source src="uploads/' . htmlspecialchars($thread['file']) . '" type="video/mp4">Your browser does not support the video tag.</video></div>';
+                } else {
+                    echo '<div class="thread-image"><img class="expandable-image" data-thumb="thumbs/' . htmlspecialchars($thread['thumb']) . '" data-full="uploads/' . htmlspecialchars($thread['file']) . '" src="thumbs/' . htmlspecialchars($thread['thumb']) . '" alt="Image"></div>';
+                }
             }
             echo '<a href="?thread=' . $thread['id'] . '" class="reply-link" style="float: right;">Reply (' . $thread['reply_count'] . ')</a><br>';
-            echo '<h2 class="subject">' . sanitize($thread['subject']) . '</h2><br><br>';
+            echo '<span class="subject"><h2>' . htmlspecialchars($thread['subject']) . '</h2></span><br>';
             echo '<span class="message">' . escapeOutput($thread['message']) . '</span><br>';
             echo '</div><hr>';
         }
@@ -468,7 +488,7 @@ $threads = getThreads($currentPage, ADELIA_THREADS_PER_PAGE, $db);
         - <a href="https://example.com" target="_blank">Adelia</a> -
     </div>
 
-    <!-- Include External JavaScript -->
+    <!-- Expandable Image JS -->
     <script src="adelia.js"></script>
 </body>
 </html>
