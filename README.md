@@ -52,7 +52,7 @@ Adelia Imageboard is a somewhat secure, reliable, and feature-rich imageboard th
    - **X-Frame-Options Header**: The `X-Frame-Options: DENY` header is set to prevent the site from being embedded in iframes, mitigating clickjacking attacks.
 
 6. **File Upload Security**
-   - **MIME Type Validation**: Files are validated using `finfo_file()` to ensure they match allowed types (e.g., JPEG, PNG, GIF, WEBM, MP4).
+   - **MIME Type Validation**: Files are validated using `finfo_file()` to ensure they match allowed types (e.g., JPEG, PNG, GIF, MP4).
    - **Filename Randomization**: Filenames are randomized using `random_bytes()` to avoid directory traversal attacks and file overwrites.
    - **Size Limitations**: File uploads are limited to **2 MB**.
    - **Permissions Restriction**: Uploaded files have permissions set to `0644` to prevent unauthorized modification.
@@ -87,7 +87,7 @@ Adelia Imageboard is a somewhat secure, reliable, and feature-rich imageboard th
    - Replies are nested under threads for organized discussions.
 
 2. **Image and Video Uploads**
-   - **Images (JPEG, PNG, GIF)** and **videos (WEBM, MP4)** can be uploaded for new threads, making discussions more engaging.
+   - **Images (JPEG, PNG, GIF)** and **videos ( MP4)** can be uploaded for new threads, making discussions more engaging.
 
 3. **Image Thumbnail Creation**
    - **Thumbnails** are created for uploaded images, optimizing load times and enhancing performance.
