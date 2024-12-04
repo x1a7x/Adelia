@@ -20,8 +20,10 @@ minimal deps- GD and sqlite3
 
 So simple a whale could install it. it makes the db and necessary directories when you visit index.php the first time from a browser. 
 
-Implemented- 
+# Implemented- 
 Pagination, reply function, images expand on click, sqlite3 db. 
+
+# security measures implemented 
 1. Cross-Site Request Forgery (CSRF) Protection
 CSRF Tokens:
 All forms now include a hidden input field with a CSRF token.
